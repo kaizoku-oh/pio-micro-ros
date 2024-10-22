@@ -1,5 +1,14 @@
 # 🚀 Micro-ROS on PlatformIO
 
+[![GitHub release](https://img.shields.io/github/v/release/kaizoku-oh/pio-micro-ros)](https://github.com/kaizoku-oh/pio-micro-ros/releases)
+[![GitHub issues](https://img.shields.io/github/issues/kaizoku-oh/pio-micro-ros)](https://github.com/kaizoku-oh/pio-micro-ros/issues)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/kaizoku-oh/pio-micro-ros/blob/main/LICENSE)
+
+------
+
+[![GitHub Build workflow status - nucleo_u575zi_q](https://github.com/kaizoku-oh/pio-micro-ros/workflows/build_nucleo_u575zi_q/badge.svg)](https://github.com/kaizoku-oh/pio-micro-ros/actions/workflows/build_nucleo_u575zi_q.yml)
+[![GitHub Build workflow status - esp32dev](https://github.com/kaizoku-oh/pio-micro-ros/workflows/build_esp32dev/badge.svg)](https://github.com/kaizoku-oh/pio-micro-ros/actions/workflows/build_esp32dev.yml)
+
 ## 🛠️ 0. Install OS dependencies
 
 ```bash
