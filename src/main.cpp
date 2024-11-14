@@ -71,12 +71,23 @@ void setup() {
   pinMode(USER_BTN, INPUT);
   attachInterrupt(digitalPinToInterrupt(USER_BTN), onButtonPressed, RISING);
 
-  // Setup serial transport
+  // Setup serial
   Serial.begin(SERIAL_BAUDRATE);
-
-  // Set micro-ros custom transport
-  set_microros_serial_transports(Serial);
   delay(2000);
+
+#if defined(MICRO_ROS_TRANSPORT_ARDUINO_SERIAL)
+  // Set micro-ros transport to Serial (USB CDC / UART)
+  set_microros_serial_transports(Serial);
+#elif defined(MICRO_ROS_TRANSPORT_ARDUINO_WIFI)
+  // Set micro-ros transport to WiFi (UDP)
+  IPAddress ip = {};
+  set_microros_wifi_transports(const_cast<char *>(WIFI_AP_SSID),
+                               const_cast<char *>(WIFI_AP_PASSWORD),
+                               ip.fromString(MICRO_ROS_AGENT_IP_ADDRESS),
+                               MICRO_ROS_AGENT_PORT);
+#else
+  #error "Please select a supported transport for micro-ros"
+#endif
 
   // Create a properly initialized allocator with default values
   allocator = rcl_get_default_allocator();
