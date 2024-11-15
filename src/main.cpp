@@ -74,17 +74,19 @@ void setup() {
   // Setup serial
   Serial.begin(SERIAL_BAUDRATE);
   delay(2000);
+  Serial.println("Started...");
 
 #if defined(MICRO_ROS_TRANSPORT_ARDUINO_SERIAL)
   // Set micro-ros transport to Serial (USB CDC / UART)
   set_microros_serial_transports(Serial);
 #elif defined(MICRO_ROS_TRANSPORT_ARDUINO_WIFI)
-  // Set micro-ros transport to WiFi (UDP)
-  IPAddress ip = {};
+  // // Set micro-ros transport to WiFi (UDP)
+  Serial.printf("Trying to connect to %s\r\n", WIFI_AP_SSID);
   set_microros_wifi_transports(const_cast<char *>(WIFI_AP_SSID),
                                const_cast<char *>(WIFI_AP_PASSWORD),
-                               ip.fromString(MICRO_ROS_AGENT_IP_ADDRESS),
+                               IPAddress(MICRO_ROS_AGENT_IP_ADDRESS),
                                MICRO_ROS_AGENT_PORT);
+  Serial.printf("Connected to %s\r\n", WIFI_AP_SSID);
 #else
   #error "Please select a supported transport for micro-ros"
 #endif
@@ -94,7 +96,7 @@ void setup() {
 
   // Create init_options
   RC_CHECK(rclc_support_init(&support, 0, NULL, &allocator));
-
+  
   // Create node
   RC_CHECK(rclc_node_init_default(&node, "pio_micro_ros", "", &support));
 
@@ -115,7 +117,7 @@ void setup() {
   // Create executor
   RC_CHECK(rclc_executor_init(&executor, &support.context, NUMBER_OF_EXECUTOR_HANDLES, &allocator));
 
-  // Add subscriptions to executor
+  // Add subscription to executor
   RC_CHECK(rclc_executor_add_subscription(
     &executor,
     &ledSubscription,
