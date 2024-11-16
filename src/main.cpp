@@ -71,19 +71,32 @@ void setup() {
   pinMode(USER_BTN, INPUT);
   attachInterrupt(digitalPinToInterrupt(USER_BTN), onButtonPressed, RISING);
 
-  // Setup serial transport
+  // Setup serial
   Serial.begin(SERIAL_BAUDRATE);
-
-  // Set micro-ros custom transport
-  set_microros_serial_transports(Serial);
   delay(2000);
+  Serial.println("Started...");
+
+#if defined(MICRO_ROS_TRANSPORT_ARDUINO_SERIAL)
+  // Set micro-ros transport to Serial (USB CDC / UART)
+  set_microros_serial_transports(Serial);
+#elif defined(MICRO_ROS_TRANSPORT_ARDUINO_WIFI)
+  // // Set micro-ros transport to WiFi (UDP)
+  Serial.printf("Trying to connect to %s\r\n", WIFI_AP_SSID);
+  set_microros_wifi_transports(const_cast<char *>(WIFI_AP_SSID),
+                               const_cast<char *>(WIFI_AP_PASSWORD),
+                               IPAddress(MICRO_ROS_AGENT_IP_ADDRESS),
+                               MICRO_ROS_AGENT_PORT);
+  Serial.printf("Connected to %s\r\n", WIFI_AP_SSID);
+#else
+  #error "Please select a supported transport for micro-ros"
+#endif
 
   // Create a properly initialized allocator with default values
   allocator = rcl_get_default_allocator();
 
   // Create init_options
   RC_CHECK(rclc_support_init(&support, 0, NULL, &allocator));
-
+  
   // Create node
   RC_CHECK(rclc_node_init_default(&node, "pio_micro_ros", "", &support));
 
@@ -104,7 +117,7 @@ void setup() {
   // Create executor
   RC_CHECK(rclc_executor_init(&executor, &support.context, NUMBER_OF_EXECUTOR_HANDLES, &allocator));
 
-  // Add subscriptions to executor
+  // Add subscription to executor
   RC_CHECK(rclc_executor_add_subscription(
     &executor,
     &ledSubscription,

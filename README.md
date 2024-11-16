@@ -24,7 +24,7 @@ lib_deps =
     https://github.com/micro-ROS/micro_ros_platformio
 ```
 
-## 🐋 2. Run micro-ros agent docker image
+## 🐋 2. Run micro-ros agent docker image for serial (UART/USB) transport
 
 ```bash
 # Run Micro-ROS agent (humble) in a container with access to serial device
@@ -38,7 +38,14 @@ docker run -it --rm -v /dev:/dev -v /dev/shm:/dev/shm --privileged --net=host mi
 docker run -it --rm -v /dev:/dev -v /dev/shm:/dev/shm --privileged --net=host microros/micro-ros-agent:humble multiserial --devs "/dev/ttyUSB0 /dev/ttyACM0" -v6
 ```
 
-## 🐳 3. Run ros2 docker image
+## 🐋 3. Run micro-ros agent docker image for WiFi (UDP) transport
+
+```bash
+# UDPv4 micro-ROS Agent
+docker run -it --rm -v /dev:/dev -v /dev/shm:/dev/shm --privileged --net=host microros/micro-ros-agent:humble udp4 --port 8888 -v6
+```
+
+## 🐳 4. Run ros2 docker image
 
 ```bash
 # Run container in interactive mode
