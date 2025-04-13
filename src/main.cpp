@@ -9,6 +9,10 @@
 #include "rclc/executor.h"
 #include "std_msgs/msg/u_int8.h"
 
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+
 /*-----------------------------------------------------------------------------------------------*/
 /* Defines                                                                                       */
 /*-----------------------------------------------------------------------------------------------*/
@@ -20,6 +24,8 @@
 #define USER_BTN (0)
 #endif // USER_BTN
 
+#define APP_QUEUE_SIZE (8U)
+
 /*-----------------------------------------------------------------------------------------------*/
 /* Macros                                                                                        */
 /*-----------------------------------------------------------------------------------------------*/
@@ -27,8 +33,18 @@
 #define RC_SOFT_CHECK(fn) { rcl_ret_t temp_rc = fn; if ((temp_rc != RCL_RET_OK)) {} }
 
 /*-----------------------------------------------------------------------------------------------*/
+/* Types                                                                                         */
+/*-----------------------------------------------------------------------------------------------*/
+typedef enum {
+  APP_EVENT_BUTTON_PRESSED,
+  APP_EVENT_MAX,
+} app_event_t;
+
+/*-----------------------------------------------------------------------------------------------*/
 /* Private functions prototypes                                                                  */
 /*-----------------------------------------------------------------------------------------------*/
+static void microROSTask(void *args);
+static void appTask(void *args);
 static void onButtonPressed();
 static void onLedMessageReceived(const void *msg);
 static void errorLoop();
@@ -45,7 +61,9 @@ static std_msgs__msg__UInt8 buttonPressCounterMessage = {0};
 static rcl_subscription_t ledSubscription = {0};
 static std_msgs__msg__UInt8 ledSubscriptionMessage = {0};
 
-static volatile bool buttonIsPressed = false;
+static xTaskHandle microROSTaskHandle = NULL;
+static xTaskHandle appTaskHandle = NULL;
+static xQueueHandle appQueueHandle = NULL;
 
 /*-----------------------------------------------------------------------------------------------*/
 /* Private constants                                                                             */
@@ -76,16 +94,51 @@ void setup() {
   delay(2000);
   Serial.println("Started...");
 
+  // Create MicroROS task
+  xTaskCreate(microROSTask,
+              "MicroROS",
+              configMINIMAL_STACK_SIZE * 8,
+              NULL,
+              tskIDLE_PRIORITY + 1,
+              &microROSTaskHandle);
+
+  // Create application queue
+  appQueueHandle = xQueueCreate(APP_QUEUE_SIZE, sizeof(app_event_t));
+
+  // Create application task
+  xTaskCreate(appTask, "app", configMINIMAL_STACK_SIZE * 8, NULL, tskIDLE_PRIORITY + 1, &appTaskHandle);
+
+  // Start the RTOS...
+  vTaskStartScheduler();
+}
+
+/**
+  * @brief Called repeatedly from inside the Arduino framework main()
+  * @param None
+  * @retval None
+  */
+void loop() {
+}
+
+/*-----------------------------------------------------------------------------------------------*/
+/* Private functions                                                                             */
+/*-----------------------------------------------------------------------------------------------*/
+/**
+  * @brief Micro ROS task function
+  * @param args pointer to task argument
+  * @retval None
+  */
+static void microROSTask(void *args) {
 #if defined(MICRO_ROS_TRANSPORT_ARDUINO_SERIAL)
   // Set micro-ros transport to Serial (USB CDC / UART)
   set_microros_serial_transports(Serial);
 #elif defined(MICRO_ROS_TRANSPORT_ARDUINO_WIFI)
-  // // Set micro-ros transport to WiFi (UDP)
+  // Set micro-ros transport to WiFi (UDP)
   Serial.printf("Trying to connect to %s\r\n", WIFI_AP_SSID);
   set_microros_wifi_transports(const_cast<char *>(WIFI_AP_SSID),
-                               const_cast<char *>(WIFI_AP_PASSWORD),
-                               IPAddress(MICRO_ROS_AGENT_IP_ADDRESS),
-                               MICRO_ROS_AGENT_PORT);
+                                const_cast<char *>(WIFI_AP_PASSWORD),
+                                IPAddress(MICRO_ROS_AGENT_IP_ADDRESS),
+                                MICRO_ROS_AGENT_PORT);
   Serial.printf("Connected to %s\r\n", WIFI_AP_SSID);
 #else
   #error "Please select a supported transport for micro-ros"
@@ -124,35 +177,48 @@ void setup() {
     &ledSubscriptionMessage,
     &onLedMessageReceived,
     ON_NEW_DATA));
-}
 
-/**
-  * @brief Called repeatedly from inside the Arduino framework main()
-  * @param None
-  * @retval None
-  */
-void loop() {
-  // Continuously checks for new data from the DDS-queue
-  RC_SOFT_CHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100)));
-  // Check if button is pressed
-  if (buttonIsPressed) {
-    buttonIsPressed = false;
-    buttonPressCounterMessage.data++;
-    // Publish button counter message
-    RC_SOFT_CHECK(rcl_publish(&publisher, &buttonPressCounterMessage, NULL));
+  while (true) {
+    // Continuously checks for new data from the DDS-queue
+    RC_SOFT_CHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100)));
   }
 }
 
-/*-----------------------------------------------------------------------------------------------*/
-/* Private functions                                                                             */
-/*-----------------------------------------------------------------------------------------------*/
+/**
+  * @brief Application task function
+  * @param args pointer to task argument
+  * @retval None
+  */
+static void appTask(void *args) {
+  app_event_t event;
+
+  while (true) {
+    if (xQueueReceive(appQueueHandle, (void *)&event, portMAX_DELAY) == pdPASS) {
+      switch (event) {
+        case APP_EVENT_BUTTON_PRESSED: {
+          Serial.println("Button is pressed!");
+          // Publish button counter message
+          buttonPressCounterMessage.data++;
+          RC_SOFT_CHECK(rcl_publish(&publisher, &buttonPressCounterMessage, NULL));
+          break;
+        }
+        default: {
+          break;
+        }
+      }
+    }
+  }
+}
+
 /**
   * @brief Button pressed ISR callback
   * @param None
   * @retval None
   */
-static void onButtonPressed() {
-  buttonIsPressed = true;
+ static void onButtonPressed() {
+  app_event_t event = APP_EVENT_BUTTON_PRESSED;
+
+  xQueueSendFromISR(appQueueHandle, &event, NULL);
 }
 
 /**
@@ -174,6 +240,6 @@ static void onLedMessageReceived(const void *msg) {
 static void errorLoop() {
   Serial.println("Error!");
   while (true) {
-    delay(100);
+    vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
