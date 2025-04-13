@@ -29,7 +29,7 @@
 /*-----------------------------------------------------------------------------------------------*/
 /* Macros                                                                                        */
 /*-----------------------------------------------------------------------------------------------*/
-#define RC_CHECK(fn) { rcl_ret_t temp_rc = fn; if ((temp_rc != RCL_RET_OK)) { errorLoop(); }}
+#define RC_CHECK(fn) { rcl_ret_t temp_rc = fn; if ((temp_rc != RCL_RET_OK)) { onErrorLoop(); }}
 #define RC_SOFT_CHECK(fn) { rcl_ret_t temp_rc = fn; if ((temp_rc != RCL_RET_OK)) {} }
 
 /*-----------------------------------------------------------------------------------------------*/
@@ -47,7 +47,7 @@ static void microROSTask(void *args);
 static void appTask(void *args);
 static void onButtonPressed();
 static void onLedMessageReceived(const void *msg);
-static void errorLoop();
+static void onErrorLoop();
 
 /*-----------------------------------------------------------------------------------------------*/
 /* Private global variables                                                                      */
@@ -108,8 +108,11 @@ void setup() {
   // Create application task
   xTaskCreate(appTask, "app", configMINIMAL_STACK_SIZE * 8, NULL, tskIDLE_PRIORITY + 1, &appTaskHandle);
 
-  // Start the RTOS...
-  vTaskStartScheduler();
+  // Check if the scheduler is not already running
+  if (xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED) {
+    // Start the scheduler...
+    vTaskStartScheduler();
+  }
 }
 
 /**
@@ -119,6 +122,36 @@ void setup() {
   */
 void loop() {
 }
+
+#if (configCHECK_FOR_STACK_OVERFLOW > 0)
+/**
+  * @brief Stack overflow detection callback
+  * @param task the task that just exceeded its stack boundaries
+  * @param taskName A character string containing the name of the offending task
+  * @retval None
+  */
+void vApplicationStackOverflowHook(xTaskHandle task, char *taskName) {
+  Serial.println("Stack overflow detected!");
+  while (true) {
+    vTaskDelay(pdMS_TO_TICKS(100));
+  }
+}
+#endif /* (configCHECK_FOR_STACK_OVERFLOW > 0) */
+
+#if (configUSE_MALLOC_FAILED_HOOK == 1)
+/**
+  * @brief Stack overflow detection callback
+  * @param task the task that just exceeded its stack boundaries
+  * @param taskName A character string containing the name of the offending task
+  * @retval None
+  */
+void vApplicationMallocFailedHook(void) {
+  Serial.println("Malloc failed detected!");
+  while (true) {
+    vTaskDelay(pdMS_TO_TICKS(100));
+  }
+}
+#endif /* (configUSE_MALLOC_FAILED_HOOK == 1) */
 
 /*-----------------------------------------------------------------------------------------------*/
 /* Private functions                                                                             */
@@ -136,9 +169,9 @@ static void microROSTask(void *args) {
   // Set micro-ros transport to WiFi (UDP)
   Serial.printf("Trying to connect to %s\r\n", WIFI_AP_SSID);
   set_microros_wifi_transports(const_cast<char *>(WIFI_AP_SSID),
-                                const_cast<char *>(WIFI_AP_PASSWORD),
-                                IPAddress(MICRO_ROS_AGENT_IP_ADDRESS),
-                                MICRO_ROS_AGENT_PORT);
+                               const_cast<char *>(WIFI_AP_PASSWORD),
+                               IPAddress(MICRO_ROS_AGENT_IP_ADDRESS),
+                               MICRO_ROS_AGENT_PORT);
   Serial.printf("Connected to %s\r\n", WIFI_AP_SSID);
 #else
   #error "Please select a supported transport for micro-ros"
@@ -181,6 +214,7 @@ static void microROSTask(void *args) {
   while (true) {
     // Continuously checks for new data from the DDS-queue
     RC_SOFT_CHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100)));
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
 
@@ -196,13 +230,17 @@ static void appTask(void *args) {
     if (xQueueReceive(appQueueHandle, (void *)&event, portMAX_DELAY) == pdPASS) {
       switch (event) {
         case APP_EVENT_BUTTON_PRESSED: {
-          Serial.println("Button is pressed!");
-          // Publish button counter message
           buttonPressCounterMessage.data++;
+          Serial.print("Button is pressed! (");
+          Serial.print(buttonPressCounterMessage.data);
+          Serial.println(")");
+          // Publish button counter message
           RC_SOFT_CHECK(rcl_publish(&publisher, &buttonPressCounterMessage, NULL));
           break;
         }
         default: {
+          Serial.print("Unkown event: ");
+          Serial.println(event);
           break;
         }
       }
@@ -237,7 +275,7 @@ static void onLedMessageReceived(const void *msg) {
   * @param None
   * @retval None
   */
-static void errorLoop() {
+static void onErrorLoop() {
   Serial.println("Error!");
   while (true) {
     vTaskDelay(pdMS_TO_TICKS(100));
