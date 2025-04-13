@@ -1,5 +1,5 @@
 # Use an official Python image as a base
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 # Set the working directory in the container
 WORKDIR /workspace
@@ -25,4 +25,4 @@ ENV PATH="/root/.platformio/penv/bin:${PATH}"
 COPY . /workspace
 
 # Define the default command to run PlatformIO
-CMD ["platformio", "--help"]
+CMD ["pio", "--help"]

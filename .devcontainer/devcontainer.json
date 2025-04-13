@@ -1,0 +1,62 @@
+{
+  "name": "PlatformIO Dev Container",
+  "build": {
+    "dockerfile": "../Dockerfile", // specify the relative path to your Dockerfile if it's not in the root
+    "context": ".." // context set to parent folder to include the entire workspace
+  },
+  "workspaceFolder": "/workspace",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "editor.renderWhitespace": "all",
+        "editor.rulers": [
+          100
+        ],
+        "editor.fontFamily": "'Fira Code', monospace",
+        "editor.fontLigatures": true,
+        "workbench.iconTheme": "material-icon-theme"
+      },
+      "keybindings": [
+        {
+          "key": "ctrl+j",
+          "command": "editor.action.joinLines",
+          "when": "editorTextFocus"
+        },
+        {
+          "key": "ctrl+shift+k",
+          "command": "editor.action.commentLine",
+          "when": "editorTextFocus"
+        },
+        {
+          "key": "ctrl+alt+k",
+          "command": "editor.action.blockComment",
+          "when": "editorTextFocus"
+        }
+      ],
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-python.python",
+        "platformio.platformio-ide",
+        "ms-vscode.vscode-embedded-tools",
+        "PKief.material-icon-theme",
+        "streetsidesoftware.code-spell-checker",
+        "eamodio.gitlens",
+        "ms-vscode.hexeditor",
+        "dan-c-underwood.arm",
+        "ZixuanWang.linkerscript",
+        "Gruntfuggly.todo-tree"
+      ]
+    }
+  },
+  "runArgs": [
+    // Optionally, give the container privileged access (useful for hardware access if needed)
+    "--privileged",
+    // Grants access to USB devices
+    "--device=/dev/bus/usb:/dev/bus/usb"
+  ],
+  // Try pio CLI
+  "postCreateCommand": "pio --version",
+  // Use root or create a user with appropriate permissions
+  "remoteUser": "root"
+}
