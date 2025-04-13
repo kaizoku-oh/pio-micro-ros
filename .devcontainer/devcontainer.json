@@ -37,6 +37,7 @@
       "extensions": [
         "ms-vscode.cpptools",
         "ms-python.python",
+        "platformio.platformio-ide",
         "ms-vscode.vscode-embedded-tools",
         "PKief.material-icon-theme",
         "streetsidesoftware.code-spell-checker",
